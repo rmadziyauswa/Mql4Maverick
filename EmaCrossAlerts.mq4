@@ -11,16 +11,22 @@
 
 input bool startIsBullishTrend = false;
 bool isBullishTrend = false;
+bool higherTimeframeBrokeStructure = false;
 datetime timeTicker = 0;
 bool priceIsAbove5Ema = false;
 bool priceIsAbove20Ema = false;
 bool fiveEmaIsAboveTwentyEma = false;
+int currentTimeframe = 0;
+int higherTimeframe = 0;
+double breakoutPrice = 0;
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit()
   {
    isBullishTrend = startIsBullishTrend;
+   currentTimeframe = Period();
+   higherTimeframe = getHigherTimeframe();
    return(INIT_SUCCEEDED);
   }
 //+------------------------------------------------------------------+
@@ -53,13 +59,28 @@ void OnTick()
       fiveEmaIsAboveTwentyEma = fiveEmaValue >= twentyEmaValue;
       
       isBullishTrend = (fiveEmaValue >= twentyEmaValue) && (lastClosePrice > twentyEmaValue);
+      higherTimeframeBrokeStructure = startIsBullishTrend ? ( iLow(NULL,higherTimeframe,0) < iLow(NULL,higherTimeframe,1) && iClose(NULL,higherTimeframe,0) < iOpen(NULL,higherTimeframe,0) ) : (iHigh(NULL,higherTimeframe,0) > iHigh(NULL,higherTimeframe,1) && iClose(NULL,higherTimeframe,0) > iOpen(NULL,higherTimeframe,0) );
       
-      Comment(StringFormat("isBullishTrend: %G \npriceIsAbove5Ema: %G \npriceIsAbove20Ema: %G \nfiveEmaIsAboveTwentyEma: %G \nlastClosePrice : %G \nfiveEmaValue : %G \ntwentyEmaValue : %G ",isBullishTrend,priceIsAbove5Ema, priceIsAbove20Ema, fiveEmaIsAboveTwentyEma  , lastClosePrice, fiveEmaValue,twentyEmaValue ));
-      
-      if(isBullishTrend != startIsBullishTrend) //trend has changed
+      Comment(StringFormat("higherTimeframeBrokeStructure: %G \nstartIsBullishTrend: %G \nisBullishTrend: %G \npriceIsAbove5Ema: %G \npriceIsAbove20Ema: %G \nfiveEmaIsAboveTwentyEma: %G \nCurrent Timeframe: %G ",higherTimeframeBrokeStructure,startIsBullishTrend,isBullishTrend,priceIsAbove5Ema, priceIsAbove20Ema, fiveEmaIsAboveTwentyEma  ,currentTimeframe ));
+  
+      if(higherTimeframeBrokeStructure && isBullishTrend != startIsBullishTrend) //trend has changed
       {
          //Print("###Trend Change : lastClosePrice=" + lastClosePrice + " , fiveEmaValue=" + fiveEmaValue + ", twentyEmaValue =" + twentyEmaValue );
          Alert("Trend change on " + Symbol() + "Timeframe: " + Period());
+         
+         if(breakoutPrice == 0 && ((startIsBullishTrend && currentCandleIsBullish) || ( !startIsBullishTrend && !currentCandleIsBullish )))
+         {
+            breakoutPrice = currentCandleIsBullish ? iLow(NULL,0,0) : iHigh(NULL,0,0);
+         }
+         
+         if(breakoutPrice > 0)
+         {
+            if((startIsBullishTrend && Bid < breakoutPrice) || ( !startIsBullishTrend && Ask > breakoutPrice ))
+            {
+               Alert("Total Breakout on " + Symbol() + "Timeframe: " + Period());
+            }
+            
+         }
          
       }
    }
@@ -67,3 +88,32 @@ void OnTick()
    
   }
 //+------------------------------------------------------------------+
+int getHigherTimeframe()
+{
+   if(currentTimeframe == 1)
+   {
+      return 5;
+   }
+   
+    if(currentTimeframe == 5)
+   {
+      return 15;
+   }
+   
+    if(currentTimeframe == 15)
+   {
+      return 60;
+   }
+   
+    if(currentTimeframe == 60)
+   {
+      return 240;
+   }
+   
+    if(currentTimeframe == 240)
+   {
+      return 1440;
+   }
+   
+   return currentTimeframe * 4;
+}
